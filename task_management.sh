@@ -172,7 +172,7 @@ mark_task_complete() {
     current_date=$(date +%Y-%m-%d)
 
     # Mark the task as complete using sed
-    sed -i "s/ID:$id|Title:\(.*\)|Status:Pending/ID:$id|Title:\1|Status:Completed|Last Completed:$current_date/" "$TASKS_FILE"
+    sed -i '' "s/ID:$id|Title:\(.*\)|Status:Pending|Frequency:\(.*\)|Last Completed:.*/ID:$id|Title:\1|Status:Completed|Frequency:\2|Last Completed:$current_date/" "$TASKS_FILE"
     echo "Task marked as complete."
 #    read -p "Press Enter to continue..."
     view_tasks
