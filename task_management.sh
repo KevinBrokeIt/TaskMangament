@@ -60,8 +60,8 @@ view_completed_tasks() {
     echo "-------------------------"
     current_date=$(date +%Y-%m-%d)
 
-    if grep -q "Status:Completed|Last Completed:$current_date" "$TASKS_FILE"; then
-        grep "Status:Completed|Last Completed:$current_date" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
+    if grep -q "Status:Completed" "$TASKS_FILE" && grep -q "Last Completed:$current_date" "$TASKS_FILE"; then
+        grep "Status:Completed" "$TASKS_FILE" | grep "Last Completed:$current_date" | awk -F '|' '{print "- " $2}'
     else
         echo "No tasks completed today."
     fi
@@ -186,8 +186,8 @@ print_daily_report() {
     {
         echo "Daily Report - $(date +%Y-%m-%d)"
         echo "=============================="
-        if grep -q "Status:Completed|Last Completed:$(date +%Y-%m-%d)" "$TASKS_FILE"; then
-            grep "Status:Completed|Last Completed:$(date +%Y-%m-%d)" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
+        if grep -q "Status:Completed" "$TASKS_FILE" && grep -q "Last Completed:$(date +%Y-%m-%d)" "$TASKS_FILE"; then
+            grep "Status:Completed" "$TASKS_FILE" | grep "Last Completed:$(date +%Y-%m-%d)" | awk -F '|' '{print "- " $2}'
         else
             echo "No tasks completed today."
         fi
@@ -217,8 +217,8 @@ print_daily_completed_tasks() {
     echo "=============================="
     current_date=$(date +%Y-%m-%d)
 
-    if grep -q "Status:Completed|Last Completed:$current_date" "$TASKS_FILE"; then
-        grep "Status:Completed|Last Completed:$current_date" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
+    if grep -q "Status:Completed" "$TASKS_FILE" && grep -q "Last Completed:$current_date" "$TASKS_FILE"; then
+        grep "Status:Completed" "$TASKS_FILE" | grep "Last Completed:$current_date" | awk -F '|' '{print "- " $2}'
     else
         echo "No tasks completed today."
         sleep 3
