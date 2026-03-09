@@ -1,7 +1,7 @@
 #!/bin/bash
 #Created by Evan Newman, CICS Umass, 10/31/2024
 #This script was created as a way to help me track my daily tasks.
-#Since I have a bunch of random task I needed a way to keep track of them.
+#Since I have a bunch of random tasks I needed a way to keep track of them.
 #This app will help keep track of what you need to do so you don't have a million stickynotes
 
 
@@ -15,42 +15,48 @@ LOG_FILE="logs/error.log"
 # Create necessary directories if they don't exist
 mkdir -p "$(dirname "$TASKS_FILE")" "$(dirname "$BACKBURNER_FILE")" "$REPORTS_DIR" "$(dirname "$LOG_FILE")"
 
-# View Today’s Tasks
+# Initialize Files if They Don't Exist
+initialize_files() {
+    touch "$TASKS_FILE" "$BACKBURNER_FILE" "$CONFIG_FILE" "$LOG_FILE"
+}
+
+# View Today's Tasks
 view_tasks() {
-    clear
-    echo "Today's Tasks:"
-    echo "-------------------------"
+    while true; do
+        clear
+        echo "Today's Tasks:"
+        echo "-------------------------"
 
-    # Check if there are any pending tasks
-    if [[ ! -s "$TASKS_FILE" || $(grep -c 'Status:Pending' "$TASKS_FILE") -eq 0 ]]; then
-        echo "No pending tasks for today."
-    else
-        local task_number=1
-        while IFS='|' read -r task; do
-            status=$(echo "$task" | awk -F 'Status:' '{print $2}' | awk -F '|' '{print $1}')
-            if [[ "$status" == "Pending" ]]; then
-                title=$(echo "$task" | awk -F 'Title:' '{print $2}' | awk -F '|' '{print $1}')
-                echo "$task_number. $title"
-                task_number=$((task_number + 1))
-            fi
-        done < "$TASKS_FILE"
-    fi
+        if [[ ! -s "$TASKS_FILE" || $(grep -c 'Status:Pending' "$TASKS_FILE") -eq 0 ]]; then
+            echo "No pending tasks for today."
+        else
+            local task_number=1
+            while IFS='|' read -r task; do
+                status=$(echo "$task" | awk -F 'Status:' '{print $2}' | awk -F '|' '{print $1}')
+                if [[ "$status" == "Pending" ]]; then
+                    title=$(echo "$task" | awk -F 'Title:' '{print $2}' | awk -F '|' '{print $1}')
+                    echo "$task_number. $title"
+                    task_number=$((task_number + 1))
+                fi
+            done < "$TASKS_FILE"
+        fi
 
-    echo "-------------------------"
-    echo "Options:"
-    echo "1. Add a New Task"
-    echo "2. Mark Task as Complete"
-    echo "3. View Backburner"
-    echo "4. Return to Main Menu"
-    read -p "Choose an option: " choice
+        echo "-------------------------"
+        echo "Options:"
+        echo "1. Add a New Task"
+        echo "2. Mark Task as Complete"
+        echo "3. View Backburner"
+        echo "4. Return to Main Menu"
+        read -p "Choose an option: " choice
 
-    case $choice in
-        1) add_task ;;
-        2) mark_task_complete ;;
-        3) view_backburner ;;
-        4) main_menu ;;
-        *) echo "Invalid option. Returning to main menu." ; main_menu ;;
-    esac
+        case $choice in
+            1) add_task ;;
+            2) mark_task_complete ;;
+            3) view_backburner ;;
+            4) return ;;
+            *) echo "Invalid option." ; read -p "Press Enter to continue..." ;;
+        esac
+    done
 }
 
 # View Completed Tasks
@@ -60,27 +66,23 @@ view_completed_tasks() {
     echo "-------------------------"
     current_date=$(date +%Y-%m-%d)
 
-    if grep -q "Status:Completed|Last Completed:$current_date" "$TASKS_FILE"; then
-        grep "Status:Completed|Last Completed:$current_date" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
+    if grep -q "Status:Completed.*Last Completed:$current_date" "$TASKS_FILE"; then
+        grep "Status:Completed.*Last Completed:$current_date" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
     else
         echo "No tasks completed today."
     fi
     read -p "Press Enter to return to the main menu..."
-    main_menu
 }
 
 # Add a New Task
-# Function to add a new task
 add_task() {
     while true; do
         clear
         echo "Add a New Task"
         echo "========================="
 
-        # Prompt for task title
         read -p "Task Title: " title
 
-        # Prompt for frequency
         echo "Set Frequency:"
         echo "1. Daily"
         echo "2. Weekly"
@@ -100,19 +102,13 @@ add_task() {
                 ;;
         esac
 
-        # Append task to the task file
-       # echo "Title:$title|Frequency:$frequency|Status:Pending|Last Completed:N/A" >> "$TASKS_FILE"
-       # echo "Task added."
-        task_id=$(date +%s)  # Unique ID based on timestamp
+        task_id=$(date +%s)
         echo "ID:$task_id|Title:$title|Status:Pending|Frequency:$frequency|Last Completed:N/A" >> "$TASKS_FILE"
-#        read -p "Press Enter to continue..."
+        echo "Task added."
 
-        # Prompt to add another task or return to main menu
         read -p "Would you like to add another task? (Y/N): " choice
         if [[ "$choice" =~ ^[Nn]$ ]]; then
-#            sleep 1
-            view_tasks
-           # return  # Exit to main menu
+            return
         fi
     done
 }
@@ -123,31 +119,26 @@ mark_task_complete() {
     echo "Mark a Task as Complete"
     echo "Please choose a task to mark as complete:"
 
-    # Display pending tasks
     task_list=()
-    task_number=1  # Initialize a counter for user-friendly numbering
+    task_number=1
     while IFS='|' read -r task; do
         status=$(echo "$task" | awk -F 'Status:' '{print $2}' | awk -F '|' '{print $1}')
         if [ "$status" == "Pending" ]; then
             title=$(echo "$task" | awk -F 'Title:' '{print $2}' | awk -F '|' '{print $1}')
-            echo "$task_number. $title"  # Display friendly number and task title
-            task_list+=("$task")  # Store the task for later processing
-            ((task_number++))  # Increment the user-friendly task number
+            echo "$task_number. $title"
+            task_list+=("$task")
+            ((task_number++))
         fi
     done < "$TASKS_FILE"
 
     if [ ${#task_list[@]} -eq 0 ]; then
         echo "No pending tasks to mark as complete."
         read -p "Press Enter to continue..."
-###EDITTTT
-#	return
-        view_tasks
-#####
+        return
     fi
 
     read -p "Enter the task number or title to mark as complete: " input
 
-    # Check if input is a number
     if [[ "$input" =~ ^[0-9]+$ ]]; then
         task_index=$((input - 1))
         if [ "$task_index" -ge 0 ] && [ "$task_index" -lt "${#task_list[@]}" ]; then
@@ -158,8 +149,14 @@ mark_task_complete() {
             return
         fi
     else
-        # If input is not a number, assume it's a title
-        selected_task=$(echo "${task_list[@]}" | grep -i "$input" | head -n 1)
+        selected_task=""
+        for t in "${task_list[@]}"; do
+            task_title=$(echo "$t" | awk -F 'Title:' '{print $2}' | awk -F '|' '{print $1}')
+            if echo "$task_title" | grep -qi "$input"; then
+                selected_task="$t"
+                break
+            fi
+        done
         if [ -z "$selected_task" ]; then
             echo "No task found with the title '$input'."
             read -p "Press Enter to continue..."
@@ -167,18 +164,13 @@ mark_task_complete() {
         fi
     fi
 
-    # Extract the task ID for updating
     id=$(echo "$selected_task" | awk -F 'ID:' '{print $2}' | awk -F '|' '{print $1}')
     current_date=$(date +%Y-%m-%d)
 
-    # Mark the task as complete using sed
     sed -i '' "s/ID:$id|Title:\(.*\)|Status:Pending|Frequency:\(.*\)|Last Completed:.*/ID:$id|Title:\1|Status:Completed|Frequency:\2|Last Completed:$current_date/" "$TASKS_FILE"
     echo "Task marked as complete."
-#    read -p "Press Enter to continue..."
-    view_tasks
+    read -p "Press Enter to continue..."
 }
-
-# Reporting Functions
 
 # View and print daily report
 print_daily_report() {
@@ -186,15 +178,14 @@ print_daily_report() {
     {
         echo "Daily Report - $(date +%Y-%m-%d)"
         echo "=============================="
-        if grep -q "Status:Completed|Last Completed:$(date +%Y-%m-%d)" "$TASKS_FILE"; then
-            grep "Status:Completed|Last Completed:$(date +%Y-%m-%d)" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
+        if grep -q "Status:Completed.*Last Completed:$(date +%Y-%m-%d)" "$TASKS_FILE"; then
+            grep "Status:Completed.*Last Completed:$(date +%Y-%m-%d)" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
         else
             echo "No tasks completed today."
         fi
     } > "$report_file"
     echo "Daily report generated: $report_file"
     read -p "Press Enter to continue..."
- reporting_menu
 }
 
 # View and print weekly report
@@ -207,7 +198,6 @@ print_weekly_report() {
     } > "$report_file"
     echo "Weekly report generated: $report_file"
     read -p "Press Enter to continue..."
- reporting_menu
 }
 
 # Print Today's Completed Tasks to Screen
@@ -217,15 +207,12 @@ print_daily_completed_tasks() {
     echo "=============================="
     current_date=$(date +%Y-%m-%d)
 
-    if grep -q "Status:Completed|Last Completed:$current_date" "$TASKS_FILE"; then
-        grep "Status:Completed|Last Completed:$current_date" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
+    if grep -q "Status:Completed.*Last Completed:$current_date" "$TASKS_FILE"; then
+        grep "Status:Completed.*Last Completed:$current_date" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
     else
         echo "No tasks completed today."
-        sleep 3
-        reporting_menu
     fi
     read -p "Press Enter to continue..."
-        reporting_menu
 }
 
 # Print This Week's Completed Tasks to Screen
@@ -233,64 +220,90 @@ print_weekly_completed_tasks() {
     clear
     echo "This Week's Completed Tasks:"
     echo "=============================="
-    start_of_week=$(date -d "last Sunday" +%Y-%m-%d)  # Get the start date of the current week
-    end_of_week=$(date +%Y-%m-%d)  # Current date
+
+    # macOS-compatible calculation of start of week (Sunday)
+    # date +%u: 1=Mon, 2=Tue, ..., 6=Sat, 7=Sun
+    day_of_week=$(date +%u)
+    if [ "$day_of_week" -eq 7 ]; then
+        days_since_sunday=0
+    else
+        days_since_sunday=$day_of_week
+    fi
+
+    if [ "$days_since_sunday" -eq 0 ]; then
+        start_of_week=$(date +%Y-%m-%d)
+    else
+        start_of_week=$(date -v -${days_since_sunday}d +%Y-%m-%d)
+    fi
+    end_of_week=$(date +%Y-%m-%d)
 
     if grep -q "Status:Completed" "$TASKS_FILE"; then
         echo "Completed Tasks from $start_of_week to $end_of_week:"
         grep "Status:Completed" "$TASKS_FILE" | awk -F '|' '{print "- " $2}'
     else
         echo "No tasks completed this week."
-        sleep 3
-        reporting_menu
     fi
     read -p "Press Enter to continue..."
-        reporting_menu
 }
-
 
 # Reporting Menu
 reporting_menu() {
-    clear
-    echo "Reporting Menu"
-    echo "=============================="
-    echo "1. View Daily Report"
-    echo "2. View Weekly Report"
-    echo "3. Print Options"
-    echo "4. Return to Main Menu"
-    echo "=============================="
-    read -p "Choose an option (1-4): " choice
+    while true; do
+        clear
+        echo "Reporting Menu"
+        echo "=============================="
+        echo "1. View Daily Report"
+        echo "2. View Weekly Report"
+        echo "3. Print Options"
+        echo "4. Return to Main Menu"
+        echo "=============================="
+        read -p "Choose an option (1-4): " choice
 
-    case $choice in
-        1) print_daily_completed_tasks ;;
-        2) print_weekly_completed_tasks ;;
-        3) 
-            echo "Options:"
-            echo "1. Print Daily Report"
-            echo "2. Print Weekly Report"
-            read -p "Choose an option: " sub_choice
-            case $sub_choice in
-                1) print_daily_report ;;
-                2) print_weekly_report ;;
-                *) echo "Invalid option." ;;
-            esac
-            ;;
-        4) main_menu ;;
-        *) echo "Invalid option. Returning to main menu." ; main_menu ;;
-    esac
+        case $choice in
+            1) print_daily_completed_tasks ;;
+            2) print_weekly_completed_tasks ;;
+            3)
+                echo "Options:"
+                echo "1. Print Daily Report"
+                echo "2. Print Weekly Report"
+                read -p "Choose an option: " sub_choice
+                case $sub_choice in
+                    1) print_daily_report ;;
+                    2) print_weekly_report ;;
+                    *) echo "Invalid option." ; read -p "Press Enter to continue..." ;;
+                esac
+                ;;
+            4) return ;;
+            *) echo "Invalid option." ; read -p "Press Enter to continue..." ;;
+        esac
+    done
 }
+
 # View Backburner Tasks
 view_backburner() {
-    clear
-    echo "Backburner Tasks:"
-    echo "-------------------------"
-    if [ ! -s "$BACKBURNER_FILE" ]; then
-        echo "No tasks in backburner."
-    else
-        cat "$BACKBURNER_FILE"
-    fi
-    read -p "Press Enter to return to the main menu..."
-    main_menu
+    while true; do
+        clear
+        echo "Backburner Tasks:"
+        echo "-------------------------"
+        if [ ! -s "$BACKBURNER_FILE" ]; then
+            echo "No tasks in backburner."
+        else
+            local line_num=1
+            while IFS= read -r line; do
+                echo "$line_num. $line"
+                line_num=$((line_num + 1))
+            done < "$BACKBURNER_FILE"
+        fi
+        echo "-------------------------"
+        echo "1. Add to Backburner"
+        echo "2. Return"
+        read -p "Choose an option: " choice
+        case $choice in
+            1) add_to_backburner ;;
+            2) return ;;
+            *) echo "Invalid option." ; read -p "Press Enter to continue..." ;;
+        esac
+    done
 }
 
 # Add to Backburner
@@ -303,51 +316,43 @@ add_to_backburner() {
     read -p "Press Enter to continue..."
 }
 
-
-
-# Main Menu
-main_menu() {
-    clear
-    echo "=============================="
-    echo "          Task Manager        "
-    echo "=============================="
-    echo "1. View Today's Tasks"
-    echo "2. View Completed Tasks"
-    echo "3. Add a New Task"
-    echo "4. Mark a Task as Complete"
-    echo "5. Reporting Menu"
-    echo "6. Settings"
-    echo "7. Exit"
-    echo "=============================="
-    read -p "Please choose an option (1-7): " choice
-
-    case $choice in
-        1) view_tasks ;;
-        2) view_completed_tasks ;;
-        3) add_task ;;
-        4) mark_task_complete ;;
-        5) reporting_menu ;;
-        6) settings ;;
-        7) exit 0 ;;
-        *)
-            echo "Invalid option, please try again."
-            read -p "Press Enter to continue..."
-            main_menu
-            ;;
-    esac
-}
-
-# Initialize Files if They Don’t Exist
-initialize_files() {
-    touch "$TASKS_FILE" "$BACKBURNER_FILE" "$CONFIG_FILE" "$LOG_FILE"
-}
 # Settings: Edit Configurations
 settings() {
     nano "$CONFIG_FILE"
-    main_menu
 }
 
+# Main Menu
+main_menu() {
+    while true; do
+        clear
+        echo "=============================="
+        echo "          Task Manager        "
+        echo "=============================="
+        echo "1. View Today's Tasks"
+        echo "2. View Completed Tasks"
+        echo "3. Add a New Task"
+        echo "4. Mark a Task as Complete"
+        echo "5. Reporting Menu"
+        echo "6. Settings"
+        echo "7. Exit"
+        echo "=============================="
+        read -p "Please choose an option (1-7): " choice
+
+        case $choice in
+            1) view_tasks ;;
+            2) view_completed_tasks ;;
+            3) add_task ;;
+            4) mark_task_complete ;;
+            5) reporting_menu ;;
+            6) settings ;;
+            7) exit 0 ;;
+            *)
+                echo "Invalid option, please try again."
+                read -p "Press Enter to continue..."
+                ;;
+        esac
+    done
+}
 
 initialize_files
 main_menu
-
